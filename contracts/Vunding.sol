@@ -51,30 +51,30 @@ contract Vunding {
 	mapping (uint => Candidate) public candidates;
 
 	modifier fundableProject(uint _projId) {
-		require(projects[_projId].fundingDeadline > now);
+		require(projects[_projId].fundingDeadline > now, "too late to fund to this project");
 		_;
 	}
 
 	modifier abortableProject(uint _projId) {
 		Project storage proj = projects[_projId];
-		require(now > proj.fundingDeadline);
-		require(proj.totalFund < proj.fundingTarget);
+		require(now > proj.fundingDeadline, "too early to abort this project");
+		require(proj.totalFund < proj.fundingTarget, "enough money are funded");
 		_;
 	}
 
 	modifier applyableProject(uint _projId) {
 		Project storage proj = projects[_projId];
-		require(now > proj.fundingDeadline);
-		require(now <= proj.fundingDeadline + candidacyPeriod);
-		require(proj.totalFund >= proj.fundingTarget);
+		require(now > proj.fundingDeadline, "too early to apply for this project");
+		require(now <= proj.fundingDeadline + candidacyPeriod, "too late to apply for this project");
+		require(proj.totalFund >= proj.fundingTarget, "not enough money");
 		_;
 	}
 
 	modifier votableProject(uint _projId) {
 		Project storage proj = projects[_projId];
-		require(now > proj.fundingDeadline + candidacyPeriod);
-		require(now <= proj.fundingDeadline + candidacyPeriod + votingPeriod);
-		require(proj.totalFund >= proj.fundingTarget);
+		require(now > proj.fundingDeadline + candidacyPeriod, "too early to vote to this project");
+		require(now <= proj.fundingDeadline + candidacyPeriod + votingPeriod, "too late to vote to this project");
+		require(proj.totalFund >= proj.fundingTarget, "not enough money");
 		_;
 	}
 
@@ -149,12 +149,12 @@ contract Vunding {
 				break;
 			}
 		}
-		require(found);
+		require(found, "candidate is not applyed for this project");
 
 		Candidate storage cand = candidates[_candId];
 		for (uint i = 0; i < cand.voters.length; i++) {
 			address voter = cand.voters[i];
-			require(voter != msg.sender);
+			require(voter != msg.sender, "duplicate votes");
 		}
 
 		cand.voters.push(msg.sender);
