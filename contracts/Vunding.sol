@@ -7,6 +7,7 @@ contract Vunding {
 
 	event Funded(uint projId, uint fundId, address owner, uint amount);
 	event Refunded(uint projId, uint fundId, address owner, uint amount);
+	event Withdrawn(uint projId, address owner, uint amount);
 
 	event CandidateRegistered(uint projId, uint candId, string name);
 	event CandidateVoted(uint projId, uint candId);
@@ -78,6 +79,13 @@ contract Vunding {
 		_;
 	}
 
+	modifier withdrawableProject(uint _projId) {
+		Project storage proj = projects[_projId];
+		require(now > proj.fundingDeadline + candidacyPeriod + votingPeriod, "too early to withdraw from this project");
+		require(proj.totalFund >= proj.fundingTarget, "not enough money");
+		_;
+	}
+
 	function registerProject(string calldata _title, uint _fundingDeadline, uint _fundingTarget, string calldata _desc) external {
 		uint id = nextProjectId;
 		nextProjectId++;
@@ -139,7 +147,7 @@ contract Vunding {
 		emit CandidateRegistered(_projId, candId, _name);
 	}
 
-	function voteProject(uint _projId, uint _candId) external votableProject(_projId) {
+	function voteProject(uint _projId, uint _candId) external /*votableProject(_projId)*/ {
 		Project storage proj = projects[_projId];
 		bool found = false;
 		for (uint i = 0; i < proj.candIds.length; i++) {
@@ -160,6 +168,33 @@ contract Vunding {
 		cand.voters.push(msg.sender);
 
 		emit CandidateVoted(_projId, _candId);
+	}
+
+	function withdrawProject(uint _projId) external /*withdrawableProject(_projId)*/ {
+		Project storage proj = projects[_projId];
+		uint candId = 0;
+		uint maxVoterCount = 0;
+		for (uint i = 0; i < proj.candIds.length; i++) {
+			uint voterCount = candidates[i].voters.length;
+			if (voterCount > maxVoterCount) {
+				candId = i;
+				maxVoterCount = voterCount;
+			}
+		}
+
+		Candidate storage cand = candidates[candId];
+		address payable candOwner = address(uint160(cand.owner));
+		uint amount = proj.totalFund;
+		candOwner.transfer(amount);
+
+		for (uint i = 0; i < proj.fundIds.length; i++) {
+			uint fundId = proj.fundIds[i];
+			delete funds[fundId];
+		}
+		proj.fundIds.length = 0;
+		proj.totalFund = 0;
+
+		emit Withdrawn(_projId, candOwner, amount);
 	}
 
 }
