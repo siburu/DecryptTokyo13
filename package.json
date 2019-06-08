@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "truffle": "truffle",
+    "console-ganache": "truffle console --network ganache",
     "clean": "rm -rf ./build"
   },
   "author": "",

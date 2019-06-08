@@ -2,7 +2,7 @@ pragma solidity 0.5.8;
 
 contract Vunding {
 
-	event ProjectRegistered(uint projId, string title, uint fundingDeadline, uint fundingTarget);
+	event ProjectRegistered(uint projId, address owner, string title, uint fundingDeadline, uint fundingTarget, string desc);
 	event ProjectAborted(uint projId, string title, uint fundingDeadline, uint fundingTarget);
 
 	event Funded(uint projId, uint fundId, address owner, uint amount);
@@ -97,7 +97,7 @@ contract Vunding {
 		proj.fundingTarget = _fundingTarget;
 		proj.desc = _desc;
 
-		emit ProjectRegistered(id, _title, _fundingDeadline, _fundingTarget);
+		emit ProjectRegistered(id, msg.sender, _title, _fundingDeadline, _fundingTarget, _desc);
 	}
 
 	function fundProject(uint _projId) external payable fundableProject(_projId) {
@@ -127,7 +127,7 @@ contract Vunding {
 			delete funds[fundId];
 		}
 
-		emit ProjectRegistered(_projId, proj.title, proj.fundingDeadline, proj.fundingTarget);
+		emit ProjectAborted(_projId, proj.title, proj.fundingDeadline, proj.fundingTarget);
 		delete projects[_projId];
 	}
 
