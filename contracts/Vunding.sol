@@ -2,11 +2,14 @@ pragma solidity 0.5.8;
 
 contract Vunding {
 
-	event ProjectRegistered(uint id, string title, uint fundingDeadline, uint fundingTarget);
-	event ProjectAborted(uint id, string title, uint fundingDeadline, uint fundingTarget);
+	event ProjectRegistered(uint projId, string title, uint fundingDeadline, uint fundingTarget);
+	event ProjectAborted(uint projId, string title, uint fundingDeadline, uint fundingTarget);
 
 	event Funded(uint projId, uint fundId, address owner, uint amount);
 	event Refunded(uint projId, uint fundId, address owner, uint amount);
+
+	event CandidateRegistered(uint projId, uint candId, string name);
+	event CandidateVoted(uint projId, uint candId);
 
 	struct Project {
 		address owner;
@@ -18,6 +21,8 @@ contract Vunding {
 
 		uint totalFund;
 		uint[] fundIds;
+
+		uint[] candIds;
 	}
 
 	struct Fund {
@@ -25,21 +30,51 @@ contract Vunding {
 		uint amount;
 	}
 
+	struct Candidate {
+		address owner;
+		string name;
+		string profile;
+		string appeal;
+		address[] voters;
+	}
+
+	uint constant candidacyPeriod = 1 days;
+	uint constant votingPeriod = 1 days;
+
 	uint nextProjectId = 0;
 	mapping (uint => Project) public projects;
 
 	uint nextFundId = 0;
 	mapping (uint => Fund) public funds;
 
-	modifier fundable(uint _projId) {
+	uint nextCandidateId = 0;
+	mapping (uint => Candidate) public candidates;
+
+	modifier fundableProject(uint _projId) {
 		require(projects[_projId].fundingDeadline > now);
 		_;
 	}
 
-	modifier abortable(uint _projId) {
+	modifier abortableProject(uint _projId) {
 		Project storage proj = projects[_projId];
 		require(now > proj.fundingDeadline);
 		require(proj.totalFund < proj.fundingTarget);
+		_;
+	}
+
+	modifier applyableProject(uint _projId) {
+		Project storage proj = projects[_projId];
+		require(now > proj.fundingDeadline);
+		require(now <= proj.fundingDeadline + candidacyPeriod);
+		require(proj.totalFund >= proj.fundingTarget);
+		_;
+	}
+
+	modifier votableProject(uint _projId) {
+		Project storage proj = projects[_projId];
+		require(now > proj.fundingDeadline + candidacyPeriod);
+		require(now <= proj.fundingDeadline + candidacyPeriod + votingPeriod);
+		require(proj.totalFund >= proj.fundingTarget);
 		_;
 	}
 
@@ -57,7 +92,7 @@ contract Vunding {
 		emit ProjectRegistered(id, _title, _fundingDeadline, _fundingTarget);
 	}
 
-	function fundProject(uint _projId) external payable fundable(_projId) {
+	function fundProject(uint _projId) external payable fundableProject(_projId) {
 		uint fundId = nextFundId;
 		nextFundId++;
 
@@ -72,7 +107,7 @@ contract Vunding {
 		emit Funded(_projId, fundId, msg.sender, msg.value);
 	}
 
-	function abortProject(uint _projId) external abortable(_projId) {
+	function abortProject(uint _projId) external abortableProject(_projId) {
 		Project storage proj = projects[_projId];
 
 		for (uint i = 0; i < proj.fundIds.length; i++) {
@@ -86,6 +121,45 @@ contract Vunding {
 
 		emit ProjectRegistered(_projId, proj.title, proj.fundingDeadline, proj.fundingTarget);
 		delete projects[_projId];
+	}
+
+	function applyProject(uint _projId, string calldata _name, string calldata _profile, string calldata _appeal) external applyableProject(_projId) {
+		uint candId = nextCandidateId;
+		nextCandidateId++;
+
+		Candidate storage cand = candidates[candId];
+		cand.owner = msg.sender;
+		cand.name = _name;
+		cand.profile = _profile;
+		cand.appeal = _appeal;
+
+		Project storage proj = projects[_projId];
+		proj.candIds.push(candId);
+
+		emit CandidateRegistered(_projId, candId, _name);
+	}
+
+	function voteProject(uint _projId, uint _candId) external votableProject(_projId) {
+		Project storage proj = projects[_projId];
+		bool found = false;
+		for (uint i = 0; i < proj.candIds.length; i++) {
+			uint candId = proj.candIds[i];
+			if (candId == _candId) {
+				found = true;
+				break;
+			}
+		}
+		require(found);
+
+		Candidate storage cand = candidates[_candId];
+		for (uint i = 0; i < cand.voters.length; i++) {
+			address voter = cand.voters[i];
+			require(voter != msg.sender);
+		}
+
+		cand.voters.push(msg.sender);
+
+		emit CandidateVoted(_projId, _candId);
 	}
 
 }
