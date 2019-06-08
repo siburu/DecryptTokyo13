@@ -4,7 +4,8 @@
   "description": "",
   "private": true,
   "scripts": {
-    "truffle": "truffle"
+    "truffle": "truffle",
+    "clean": "rm -rf ./build"
   },
   "author": "",
   "license": "ISC",
